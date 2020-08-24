@@ -1,0 +1,37 @@
+sudo: required
+language: generic
+
+services:
+    - docker
+
+before_install:
+    - docker build -t rymunin/react-test -f ./client/Dockerfile.dev ./client
+
+script:
+    - docker run -e CI=true rymunin/react-test npm test 
+
+after_success: 
+    - docker build -t rymunin/multi-client ./client
+    - docker build -t rymunin/multi-nginx ./nginx
+    - docker build -t rymunin/multi-server ./server
+    - docker build -t rymunin/multi-worker ./worker
+    # Log in to the docker CLI
+    - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_ID" --password-stdin
+    # take images and push to docker hub
+    - docker push rymunin/multi-client
+    - docker push rymunin/multi-nginx
+    - docker push rymunin/multi-server
+    - docker push rymunin/multi-worker
+
+deploy:
+    
+    provider: elasticbeanstalk
+    region: us-east-2
+    app: multi-docker
+    env: MultiDocker-env
+    bucket_name: elasticbeanstalk-us-east-2-624750282849
+    bucket_path: docker-multi
+    on:
+        branch: master
+    access_key_id: $AWS_ACCESS_KEY
+    secret_access_key: $AWS_SECRET_KEY
